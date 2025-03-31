@@ -15,7 +15,7 @@ export default {
       ? decodeURI(params.description.toString())
       : `${title} Recent Changes`;
     /** フィードの出力形式 */
-    const type = params.type ? params.type.toString() : "atom";
+    const type = params.type ? params.type.toString() : "rss";
     /** 最大表示件数 */
     const limit = params.limit ? parseInt(params.limit.toString()) : 10;
     /** Growiのアドレス */
@@ -44,12 +44,12 @@ export default {
       ret.push("</feed>");
     } else {
       ret.push(`  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
-        <channel>
-          <title>${title}</title>
-          <link>${params.url}</link>
-          <description>${description}</description>
-          <generator>Growi Feed Converter v0.0.1</generator>
-          <atom:link href="${request.url}" type="application/rss+xml" />`);
+    <channel>
+      <title>${title}</title>
+      <link>${params.url}</link>
+      <description>${description}</description>
+      <generator>Growi Feed Converter v0.0.1</generator>
+      <atom:link href="${request.url}" type="application/rss+xml" />`);
       ret.push(await toItems(url, json));
       ret.push("  </channel>");
       ret.push("</rss>");

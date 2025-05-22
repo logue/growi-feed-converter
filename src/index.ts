@@ -17,57 +17,80 @@ export default {
     /** フィードの出力形式 */
     const type = params.type ? params.type.toString() : "rss";
     /** 最大表示件数 */
-    const limit = params.limit ? parseInt(params.limit.toString()) : 10;
+    const limit = params.limit ? parseInt(params.limit.toString()) : 20;
     /** Growiのアドレス */
     const url = params.url.toString().replace(/\/$/, "");
 
-    if (type !== "rss" && type !== "atom") {
-      return new Response("Supports only atom and rss.");
+    if (type !== "rss" && type !== "atom" && type !== "sitemaps") {
+      return new Response("Supports only atom, rss and sitemaps.");
     }
 
-    /** APIの実行結果 */
-    const response = await fetch(`${url}/_api/v3/pages/recent?limit=${limit}`);
-    /** APIのJSONデータ */
-    const json = await response.json();
+    if (type === "rss" || type === "atom") {
+      /** APIの実行結果 */
+      const response = await fetch(
+        `${url}/_api/v3/pages/recent?limit=${limit}`
+      );
+      /** APIのJSONデータ */
+      const json = await response.json();
 
-    const ret = [];
-    ret.push('<?xml version="1.0" encoding="UTF-8"?>');
-    if (type === "atom") {
-      ret.push(`  <feed xmlns="http://www.w3.org/2005/Atom">
+      const ret = [];
+      ret.push('<?xml version="1.0" encoding="UTF-8"?>');
+      if (type === "atom") {
+        ret.push(`  <feed xmlns="http://www.w3.org/2005/Atom">
     <title>${title}</title>
     <subtitle>${description}</subtitle>
     <id>${url}/</id>
     <updated>${new Date().toISOString()}</updated>
     <link href="${request.url.replace("&", "&amp;")}" rel="self" />
     <link href="${url}" />`);
-      ret.push(await toEntries(url, json));
-      ret.push("</feed>");
-    } else {
-      ret.push(`  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+        ret.push(toEntries(url, json));
+        ret.push("</feed>");
+      } else {
+        ret.push(`  <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
       <title>${title}</title>
       <link>${params.url}</link>
       <description>${description}</description>
       <generator>Growi Feed Converter v0.0.1</generator>
       <atom:link href="${request.url}" type="application/rss+xml" />`);
-      ret.push(await toItems(url, json));
-      ret.push("  </channel>");
-      ret.push("</rss>");
-    }
+        ret.push(toItems(url, json));
+        ret.push("  </channel>");
+        ret.push("</rss>");
+      }
 
-    return new Response(ret.join("\n"), {
-      headers: {
-        "Content-Type": `application/${type}+xml;charset=UTF-8`,
-        "Cache-Control": "no-cache",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET",
-      },
-    });
+      return new Response(ret.join("\n"), {
+        headers: {
+          "Content-Type": `application/${type}+xml;charset=UTF-8`,
+          "Cache-Control": "no-cache",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET",
+        },
+      });
+    } else if (type === "sitemaps") {
+      /** APIの実行結果 */
+      const response = await fetch(`${url}/_api/v3/pages/list?limit=${limit}`);
+      /** APIのJSONデータ */
+      const json = await response.json();
+      const ret = [];
+      ret.push('<?xml version="1.0" encoding="UTF-8"?>');
+      ret.push('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+      ret.push(toUrls(url, json));
+      ret.push("</urlset>");
+
+      return new Response(ret.join("\n"), {
+        headers: {
+          "Content-Type": ` application/xml;charset=UTF-8`,
+          "Cache-Control": "no-cache",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET",
+        },
+      });
+    }
   },
 };
 
 /** Atomのエントリを生成 */
-async function toEntries(baseUri: string, json: any) {
+function toEntries(baseUri: string, json: any) {
   const entries: string[] = [];
   json.pages.forEach((page: any) => {
     entries.push(`    <entry>
@@ -86,7 +109,7 @@ async function toEntries(baseUri: string, json: any) {
 }
 
 /** RSSの項目を生成 */
-async function toItems(baseUri: string, json: any) {
+function toItems(baseUri: string, json: any) {
   const items: string[] = [];
   json.pages.forEach((page: any) => {
     items.push(`      <item>
@@ -100,6 +123,22 @@ async function toItems(baseUri: string, json: any) {
         <comments>${baseUri}/${page.id}#page-comments-list</comments>
         <guid>${baseUri}/${page.id}</guid>
       </item>`);
+  });
+  return items.join("\n");
+}
+
+/** SitemapのURLを生成 */
+function toUrls(baseUri: string, json: any) {
+  const items: string[] = [];
+  json.pages.forEach((page: any) => {
+    if (page.wip) {
+      return;
+    }
+    items.push(`  <url>
+    <loc>${baseUri}/${page._id}</loc>
+    <lastmod>${new Date(page.updatedAt).toISOString()}</lastmod>
+    <changefreq>daily</changefreq>
+  </url>`);
   });
   return items.join("\n");
 }

@@ -52,7 +52,7 @@ export default {
       <link>${params.url}</link>
       <description>${description}</description>
       <generator>Growi Feed Converter v0.0.1</generator>
-      <atom:link href="${request.url}" type="application/rss+xml" />`);
+      <atom:link href="${request.url}" type="application/rss+xml" rel="self" />`);
         ret.push(toItems(url, json));
         ret.push("  </channel>");
         ret.push("</rss>");
